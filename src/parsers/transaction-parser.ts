@@ -241,6 +241,10 @@ export class TransactionParser {
           }
 
           const tokenOutInfo = await this.tokenUtils.getParsedTokenInfo(tokenOutMint)
+          if (!tokenOutInfo?.data?.symbol) {
+            console.log('NO TOKEN OUT INFO FOUND - SKIPPING')
+            return
+          }
           tokenOut = tokenOutInfo.data.symbol.replace(/\x00/g, '')
           tokenIn = 'SOL'
         } else {
@@ -254,6 +258,10 @@ export class TransactionParser {
           }
 
           const tokenInInfo = await this.tokenUtils.getParsedTokenInfo(tokenInMint)
+          if (!tokenInInfo?.data?.symbol) {
+            console.log('NO TOKEN IN INFO FOUND - SKIPPING')
+            return
+          }
           tokenIn = tokenInInfo.data.symbol.replace(/\x00/g, '')
           tokenOut = 'SOL'
         }

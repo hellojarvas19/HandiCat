@@ -82,9 +82,12 @@ export class WatchTransaction extends EventEmitter {
             const transactionDetails = await this.getParsedTransaction(transactionSignature)
 
             if (!transactionDetails || transactionDetails[0] === null) {
+              console.log(`Skipping transaction ${transactionSignature} - no details available`)
               return
             }
 
+            console.log(`Processing ${swap} transaction: ${transactionSignature}`)
+            
             const solPriceUsd = CronJobs.getSolPrice()
             const transactionParser = new TransactionParser(transactionSignature)
 
