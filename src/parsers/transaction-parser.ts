@@ -135,7 +135,7 @@ export class TransactionParser {
 
       const raydiumTransfer = transactions.length > 1 ? transactions[1] : transactions[0]
 
-      if (!raydiumTransfer && swap !== 'pumpfun_amm') {
+      if (!raydiumTransfer && swap !== 'pumpfun_amm' && swap !== 'pumpfun') {
         console.log('NO RAYDIUM TRANSFER')
         return
       }
@@ -217,6 +217,73 @@ export class TransactionParser {
           currenHoldingPercentage: currentHoldingPercentage,
           currentHoldingPrice: currentHoldingPrice,
           isNew: isNew,
+          tokenTransfers: {
+            tokenInSymbol: tokenIn,
+            tokenInMint: tokenInMint,
+            tokenAmountIn: amountIn,
+            tokenOutSymbol: tokenOut,
+            tokenOutMint: tokenOutMint,
+            tokenAmountOut: amountOut,
+          },
+        }
+      }
+
+      // for pumpfun transactions
+      if (swap === 'pumpfun' && transactions.length >= 1) {
+        if (nativeBalance?.type === 'sell') {
+          tokenOutMint = transactions[0]?.info.mint
+          tokenInMint = 'So11111111111111111111111111111111111111112'
+
+          if (!tokenOutMint) {
+            console.log('NO TOKEN OUT MINT FOR PUMPFUN')
+            return
+          }
+
+          const tokenOutInfo = await this.tokenUtils.getParsedTokenInfo(tokenOutMint)
+          if (!tokenOutInfo?.data?.symbol) {
+            console.log('NO TOKEN OUT INFO FOUND - SKIPPING PUMPFUN')
+            return
+          }
+          tokenOut = tokenOutInfo.data.symbol.replace(/\x00/g, '')
+          tokenIn = 'SOL'
+        } else {
+          tokenInMint = transactions[0]?.info.mint
+          tokenOutMint = 'So11111111111111111111111111111111111111112'
+
+          if (!tokenInMint) {
+            console.log('NO TOKEN IN MINT FOR PUMPFUN')
+            return
+          }
+
+          const tokenInInfo = await this.tokenUtils.getParsedTokenInfo(tokenInMint)
+          if (!tokenInInfo?.data?.symbol) {
+            console.log('NO TOKEN IN INFO FOUND - SKIPPING PUMPFUN')
+            return
+          }
+          tokenIn = tokenInInfo.data.symbol.replace(/\x00/g, '')
+          tokenOut = 'SOL'
+        }
+
+        const formattedAmount = FormatNumbers.formatTokenAmount(Number(transactions[0]?.info?.tokenAmount?.amount || 0))
+        amountOut = nativeBalance?.type === 'sell' ? formattedAmount : totalSolSwapped.toFixed(2).toString()
+        amountIn = nativeBalance?.type === 'sell' ? totalSolSwapped.toFixed(2).toString() : formattedAmount
+        owner = walletAddress
+
+        const swapDescription = `${owner} swapped ${amountOut} ${tokenOut} for ${amountIn} ${tokenIn}`
+
+        return {
+          platform: swap,
+          owner: owner,
+          description: swapDescription,
+          type: nativeBalance?.type,
+          balanceChange: nativeBalance?.balanceChange,
+          signature: this.transactionSignature,
+          swappedTokenMc: null,
+          swappedTokenPrice: null,
+          solPrice: solPriceUsd || '',
+          currenHoldingPercentage: '',
+          currentHoldingPrice: '',
+          isNew: false,
           tokenTransfers: {
             tokenInSymbol: tokenIn,
             tokenInMint: tokenInMint,
