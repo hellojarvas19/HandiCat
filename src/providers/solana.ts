@@ -10,7 +10,12 @@ const HELIUS_NETWORK = `https://mainnet.helius-rpc.com/?api-key=${process.env.HE
 const RPC_ENDPOINTS =
   process.env.RPC_ENDPOINTS?.split(',')
     .map((url) => url.trim())
-    .filter(Boolean) ?? []
+    .filter(Boolean) ?? [
+    'https://api.mainnet-beta.solana.com',
+    'https://solana-api.projectserum.com',
+    'https://rpc.ankr.com/solana',
+    'https://solana-mainnet.g.alchemy.com/v2/demo'
+  ]
 
 console.log(chalk.bold.greenBright(`LOADED ${RPC_ENDPOINTS.length} RPC ENDPOINTS`))
 
