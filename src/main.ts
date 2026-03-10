@@ -13,7 +13,6 @@ import gradient from 'gradient-string'
 import { GroupsCommand } from './bot/commands/groups-command'
 import { HelpCommand } from './bot/commands/help-command'
 import { ManageCommand } from './bot/commands/manage-command'
-import { UpgradePlanCommand } from './bot/commands/upgrade-plan-command'
 import { AdminCommand } from './bot/commands/admin-command'
 
 dotenv.config()
@@ -31,7 +30,6 @@ class Main {
   private groupsCommand: GroupsCommand
   private helpCommand: HelpCommand
   private manageCommand: ManageCommand
-  private upgradePlanCommand: UpgradePlanCommand
   private adminCommand: AdminCommand
   constructor(private app: Express = express()) {
     this.setupMiddleware()
@@ -47,7 +45,6 @@ class Main {
     this.groupsCommand = new GroupsCommand(bot)
     this.helpCommand = new HelpCommand(bot)
     this.manageCommand = new ManageCommand(bot)
-    this.upgradePlanCommand = new UpgradePlanCommand(bot)
     this.adminCommand = new AdminCommand(bot)
 
     this.startServer()
@@ -96,15 +93,12 @@ class Main {
     this.deleteCommand.deleteCommandHandler()
     this.groupsCommand.activateGroupCommandHandler()
     this.manageCommand.manageCommandHandler()
-    this.upgradePlanCommand.upgradePlanCommandHandler()
     this.helpCommand.groupHelpCommandHandler()
     this.helpCommand.notifyHelpCommandHander()
     this.adminCommand.banWalletCommandHandler()
 
     // cron jobs
-    await this.cronJobs.monthlySubscriptionFee()
     await this.cronJobs.updateSolPrice()
-    await this.cronJobs.sendRenewalReminder()
 
     // setup
     await this.trackWallets.setupWalletWatcher({ event: 'initial' })

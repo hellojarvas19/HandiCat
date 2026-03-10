@@ -3,6 +3,7 @@ import { ValidTransactions } from './valid-transactions'
 import EventEmitter from 'events'
 import { TransactionParser } from '../parsers/transaction-parser'
 import { SendTransactionMsgHandler } from '../bot/handlers/send-tx-msg-handler'
+import { TelegramUserClient } from '../config/telegram-user-client'
 import { bot } from '../providers/telegram'
 import { SwapType, WalletWithUsers } from '../types/swap-types'
 import { RateLimit } from './rate-limit'
@@ -16,20 +17,21 @@ import TelegramBot from 'node-telegram-bot-api'
 
 export class WatchTransaction extends EventEmitter {
   private walletTransactions: Map<string, { count: number; startTime: number }>
-
   private rateLimit: RateLimit
-
   private prismaUserRepository: PrismaUserRepository
+  private excludedWallets: Map<string, boolean>
+  private telegramUserClient: TelegramUserClient
+
   constructor() {
     super()
-
     this.walletTransactions = new Map()
-
-    // this.trackedWallets = new Set()
-
     this.rateLimit = new RateLimit(WalletPool.subscriptions)
-
     this.prismaUserRepository = new PrismaUserRepository()
+    this.excludedWallets = new Map()
+    this.telegramUserClient = new TelegramUserClient()
+    
+    // Initialize Telegram User Client
+    this.telegramUserClient.connect().catch(console.error)
   }
 
   public async watchSocket(wallets: WalletWithUsers[]): Promise<void> {
@@ -38,41 +40,28 @@ export class WatchTransaction extends EventEmitter {
         const publicKey = new PublicKey(wallet.address)
         const walletAddress = publicKey.toBase58()
 
-        // Check if a subscription already exists for this wallet address
         if (WalletPool.subscriptions.has(walletAddress)) {
-          // console.log(`Already watching for: ${walletAddress}`)
-          continue // Skip re-subscribing
+          continue
         }
 
         console.log(chalk.greenBright(`Watching transactions for wallet: `) + chalk.yellowBright.bold(walletAddress))
 
-        // Initialize transaction count and timestamp
         this.walletTransactions.set(walletAddress, { count: 0, startTime: Date.now() })
 
-        // Start real-time log
         const subscriptionId = RpcConnectionManager.logConnection.onLogs(
           publicKey,
           async (logs, ctx) => {
-            // Exclude wallets that have reached the limit
-            if (WalletPool.bannedWallets.has(walletAddress)) {
+            if (this.excludedWallets.has(walletAddress)) {
               console.log(`Wallet ${walletAddress} is excluded from logging.`)
-
               return
             }
-
-            // if (wallet.userWallets[0].status === 'SPAM_PAUSED') {
-            //   console.log('PAUSED TRANSACTIONS FOR: ', walletAddress)
-            //   return
-            // }
 
             const { isRelevant, swap } = ValidTransactions.isRelevantTransaction(logs)
 
             if (!isRelevant) {
-              // console.log('TRANSACTION IS NOT DEFI', logs.signature)
               return
             }
-            // console.log('TRANSACTION IS DEFI', logs.signature)
-            // check txs per second
+
             const walletData = this.walletTransactions.get(walletAddress)
             if (!walletData) {
               return
@@ -81,7 +70,7 @@ export class WatchTransaction extends EventEmitter {
             const isWalletRateLimited = await this.rateLimit.txPerSecondCap({
               wallet,
               bot,
-              excludedWallets: WalletPool.bannedWallets,
+              excludedWallets: this.excludedWallets,
               walletData,
             })
 
@@ -90,14 +79,12 @@ export class WatchTransaction extends EventEmitter {
             }
 
             const transactionSignature = logs.signature
-
             const transactionDetails = await this.getParsedTransaction(transactionSignature)
 
             if (!transactionDetails || transactionDetails[0] === null) {
               return
             }
 
-            // Parse transaction
             const solPriceUsd = CronJobs.getSolPrice()
             const transactionParser = new TransactionParser(transactionSignature)
 
@@ -119,7 +106,6 @@ export class WatchTransaction extends EventEmitter {
               }
               console.log(parsed.description)
 
-              // await this.sendTransactionMessageToUsers(wallet, parsed)S
               await this.sendMessageToUsers(wallet, parsed, (handler, parsedData, userId) =>
                 handler.sendTransactionMessage(parsedData, userId),
               )
@@ -130,7 +116,6 @@ export class WatchTransaction extends EventEmitter {
               }
               console.log(parsed.description)
 
-              // await this.sendTransferMessageToUsers(wallet, parsed)
               await this.sendMessageToUsers(wallet, parsed, (handler, parsedData, userId) =>
                 handler.sendTransferMessage(parsedData, userId),
               )
@@ -139,7 +124,6 @@ export class WatchTransaction extends EventEmitter {
           'processed',
         )
 
-        // Store subscription ID
         WalletPool.subscriptions.set(wallet.address, subscriptionId)
         console.log(
           chalk.greenBright(`Subscribed to logs with subscription ID: `) + chalk.yellowBright.bold(subscriptionId),
@@ -169,7 +153,6 @@ export class WatchTransaction extends EventEmitter {
         console.error(`Attempt ${attempt}: Error fetching transaction details`, error)
       }
 
-      // Delay before retrying
       await new Promise((resolve) => setTimeout(resolve, 1000 * attempt))
     }
 
@@ -192,14 +175,14 @@ export class WatchTransaction extends EventEmitter {
 
     const activeUsers = wallet.userWallets.filter((w) => !pausedUsers || !pausedUsers.includes(w.userId))
 
-    // Remove duplicate users
     const uniqueActiveUsers = Array.from(new Set(activeUsers.map((user) => user.userId))).map((userId) =>
       activeUsers.find((user) => user.userId === userId),
     )
 
     const limit = pLimit(20)
 
-    const tasks = uniqueActiveUsers.map((user) =>
+    // Send to personal chats (all messages)
+    const personalTasks = uniqueActiveUsers.map((user) =>
       limit(async () => {
         if (user) {
           try {
@@ -211,6 +194,18 @@ export class WatchTransaction extends EventEmitter {
       }),
     )
 
-    await Promise.all(tasks)
+    // Send buy messages to groups via user client
+    const groupTask = limit(async () => {
+      if (parsed && typeof parsed === 'object' && 'type' in parsed && 'owner' in parsed) {
+        try {
+          const walletName = wallet.name || wallet.address.slice(0, 8)
+          await this.telegramUserClient.sendBuyMessageToGroups(parsed as any, walletName)
+        } catch (error) {
+          console.log('Error sending buy message to groups:', error)
+        }
+      }
+    })
+
+    await Promise.all([...personalTasks, groupTask])
   }
 }

@@ -1,15 +1,13 @@
-import { MAX_FREE_WALLETS } from '../../constants/pricing'
 import { WalletDetails } from '../../lib/wallet-details'
 import { UserWallet } from '../../types/prisma-types'
 
 export class ManageMessages {
-  static manageMessage(userWallets: UserWallet[], walletsAmt: number) {
+  static manageMessage(userWallets: UserWallet[]) {
     const messageText = `
-<b>Your wallets: ${userWallets.length} / ${walletsAmt}</b>
+<b>Your wallets: ${userWallets.length}</b>
 
 ✅ - Wallet is active
 ⏳ - Wallet was sending too many txs and is paused
-🛑 - Wallet was banned
 
 ${userWallets
   .map((wallet, i) => {
@@ -20,9 +18,7 @@ ${userWallets
           ? '⏸️'
           : wallet.status === 'SPAM_PAUSED'
             ? '⏳'
-            : wallet.status === 'BANNED'
-              ? '🛑'
-              : ''
+            : ''
     return `${icon} ${i + 1}. <code>${wallet.wallet.address}</code> ${wallet.name ? `(${wallet.name})` : ''}`
   })
   .join('\n\n')}

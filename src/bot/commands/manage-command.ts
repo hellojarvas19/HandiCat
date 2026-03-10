@@ -2,20 +2,15 @@ import TelegramBot from 'node-telegram-bot-api'
 import { PrismaWalletRepository } from '../../repositories/prisma/wallet'
 import { ManageMessages } from '../messages/manage-messages'
 import { MANAGE_SUB_MENU } from '../../config/bot-menus'
-import { UserPlan } from '../../lib/user-plan'
 import { BotMiddleware } from '../../config/bot-middleware'
 
 export class ManageCommand {
   private prismaWalletRepository: PrismaWalletRepository
-  private userPlan: UserPlan
-
   private manageMessages: ManageMessages
   constructor(private bot: TelegramBot) {
     this.bot = bot
 
     this.prismaWalletRepository = new PrismaWalletRepository()
-    this.userPlan = new UserPlan()
-
     this.manageMessages = new ManageMessages()
   }
 
@@ -34,9 +29,7 @@ export class ManageCommand {
 
     const userWallets = await this.prismaWalletRepository.getUserWallets(userId)
 
-    const planWallets = await this.userPlan.getUserPlanWallets(userId)
-
-    const messageText = ManageMessages.manageMessage(userWallets || [], planWallets)
+    const messageText = ManageMessages.manageMessage(userWallets || [])
 
     if (isButton) {
       this.bot.editMessageText(messageText, {

@@ -1,7 +1,6 @@
 import TelegramBot from 'node-telegram-bot-api'
 import { PrismaUserRepository } from '../repositories/prisma/user'
 import { bot } from '../providers/telegram'
-import { SubscriptionMessages } from '../bot/messages/subscription-messages'
 import { PrismaGroupRepository } from '../repositories/prisma/group'
 import { GeneralMessages } from '../bot/messages/general-messages'
 import dotenv from 'dotenv'
@@ -13,23 +12,10 @@ export class BotMiddleware {
     return chatId < 0
   }
 
-  static async isUserPro(userId: string): Promise<boolean> {
-    const prismaUserRepository = new PrismaUserRepository()
-
-    const userPlan = await prismaUserRepository.getUserPlan(userId)
-
-    const isAuthorized = userPlan?.userSubscription?.plan === 'PRO' || userPlan?.userSubscription?.plan === 'WHALE'
-
-    return isAuthorized || false
-  }
-
   static isUserBotAdmin(userId: string): boolean {
     try {
-      // Get the list of administrators for the group chat
       const adminId = process.env.ADMIN_CHAT_ID ?? ''
-
       const isAdmin = userId === adminId
-
       return isAdmin
     } catch (error) {
       console.error('Error checking if user is admin:', error)
@@ -39,11 +25,8 @@ export class BotMiddleware {
 
   static async isUserGroupAdmin(chatId: number, userId: string): Promise<boolean> {
     try {
-      // Get the list of administrators for the group chat
       const admins = await bot.getChatAdministrators(chatId)
-
       const isAdmin = admins.some((admin) => admin.user.id.toString() === userId)
-
       return isAdmin
     } catch (error) {
       console.error('Error checking if user is admin:', error)
@@ -111,14 +94,6 @@ export class BotMiddleware {
       return {
         isValid: false,
         message: GeneralMessages.userNotAuthorizedInGroup,
-      }
-    }
-
-    const isUserPro = await BotMiddleware.isUserPro(userId)
-    if (!isUserPro) {
-      return {
-        isValid: false,
-        message: SubscriptionMessages.groupChatNotPro,
       }
     }
 

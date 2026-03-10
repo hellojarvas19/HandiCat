@@ -1,30 +1,22 @@
 import TelegramBot from 'node-telegram-bot-api'
-import { SUB_MENU, UPGRADE_PLAN_SUB_MENU } from '../../config/bot-menus'
+import { SUB_MENU } from '../../config/bot-menus'
 import { PublicKey } from '@solana/web3.js'
 import { PrismaWalletRepository } from '../../repositories/prisma/wallet'
 import { userExpectingWalletAddress } from '../../constants/flags'
 import { TrackWallets } from '../../lib/track-wallets'
-import { RateLimit } from '../../lib/rate-limit'
-import { MAX_5_MIN_TXS_ALLOWED } from '../../constants/handi-cat'
 import { WalletMessages } from '../messages/wallet-messages'
-import { UserPlan } from '../../lib/user-plan'
-import { PrismaUserRepository } from '../../repositories/prisma/user'
 import { GeneralMessages } from '../messages/general-messages'
-import { BANNED_WALLETS } from '../../constants/banned-wallets'
 import { BotMiddleware } from '../../config/bot-middleware'
-import { SubscriptionMessages } from '../messages/subscription-messages'
 
 export class AddCommand {
   private prismaWalletRepository: PrismaWalletRepository
   private trackWallets: TrackWallets
-  private userPlan: UserPlan
   constructor(private bot: TelegramBot) {
     this.bot = bot
 
     this.prismaWalletRepository = new PrismaWalletRepository()
 
     this.trackWallets = new TrackWallets()
-    this.userPlan = new UserPlan()
   }
 
   public addCommandHandler() {
@@ -97,14 +89,6 @@ export class AddCommand {
         for (const entry of walletEntries) {
           const [walletAddress, walletName] = entry.split(' ')
 
-          // check for bot wallets
-          if (BANNED_WALLETS.has(walletAddress)) {
-            return this.bot.sendMessage(message.chat.id, GeneralMessages.botWalletError, {
-              parse_mode: 'HTML',
-              reply_markup: BotMiddleware.isGroup(message.chat.id) ? undefined : SUB_MENU,
-            })
-          }
-
           if (walletAddress.includes('orc') || walletAddress.includes('pump') || walletAddress.includes('Token')) {
             return this.bot.sendMessage(message.chat.id, GeneralMessages.botWalletError, {
               parse_mode: 'HTML',
@@ -113,21 +97,9 @@ export class AddCommand {
           }
 
           // check if user can add a wallet inside their plan limits
-          const planWallets = await this.userPlan.getUserPlanWallets(userId)
           const userWallets = await this.prismaWalletRepository.getUserWallets(userId)
 
-          if (userWallets && userWallets.length >= planWallets) {
-            return this.bot.sendMessage(
-              message.chat.id,
-              GeneralMessages.walletLimitMessageError(walletName, walletAddress, planWallets),
-              {
-                parse_mode: 'HTML',
-                reply_markup: BotMiddleware.isGroup(message.chat.id) ? undefined : UPGRADE_PLAN_SUB_MENU,
-              },
-            )
-          }
-
-          // Validate the wallet before pushing to the database
+          // check for bot wallets
           if (!base58Regex.test(walletAddress)) {
             this.bot.sendMessage(message.chat.id, `😾 Address provided is not a valid Solana wallet`)
             continue

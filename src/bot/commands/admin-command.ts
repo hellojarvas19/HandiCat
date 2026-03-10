@@ -22,12 +22,11 @@ export class AdminCommand {
       if (!userId) return
 
       const isAdmin = BotMiddleware.isUserBotAdmin(userId)
-      // console.log('is admin', isAdmin)
       if (!isAdmin) return
 
       this.bot.removeAllListeners('message')
 
-      this.bot.sendMessage(chatId, `Enter the wallet <b>Public Key</b> you want to <b>Ban</b>`, {
+      this.bot.sendMessage(chatId, `Enter the wallet <b>Public Key</b> you want to <b>Pause</b>`, {
         reply_markup: SUB_MENU,
         parse_mode: 'HTML',
       })
@@ -54,10 +53,9 @@ export class AdminCommand {
           return
         }
 
-        // Ban the wallet
-        const walletToban = await this.walletRespository.getWalletByAddress(walletAddress)
-        console.log('WALLET TO BAN:', walletToban)
-        if (!walletToban?.id) {
+        const walletToPause = await this.walletRespository.getWalletByAddress(walletAddress)
+        console.log('WALLET TO PAUSE:', walletToPause)
+        if (!walletToPause?.id) {
           this.bot.sendMessage(chatId, `Wallet with address <code>${walletAddress}</code> is not in the Database!`, {
             parse_mode: 'HTML',
           })
@@ -65,20 +63,18 @@ export class AdminCommand {
           return
         }
 
-        const bannedWallet = await this.walletRespository.pauseUserWalletSpam(walletToban?.id, 'BANNED')
+        const pausedWallet = await this.walletRespository.pauseUserWalletSpam(walletToPause?.id, 'SPAM_PAUSED')
 
-        if (bannedWallet) {
-          this.trackWallets.setupWalletWatcher({ event: 'update', walletId: walletToban.id })
-          this.bot.sendMessage(chatId, `wallet with address <code>${walletAddress}</code> has been banned!`, {
+        if (pausedWallet) {
+          this.trackWallets.setupWalletWatcher({ event: 'update', walletId: walletToPause.id })
+          this.bot.sendMessage(chatId, `wallet with address <code>${walletAddress}</code> has been paused!`, {
             parse_mode: 'HTML',
           })
         } else {
-          this.bot.sendMessage(chatId, `Failed to delete wallet with address <code>${walletAddress}</code>`)
+          this.bot.sendMessage(chatId, `Failed to pause wallet with address <code>${walletAddress}</code>`)
         }
 
         this.bot.removeListener('message', listener)
-
-        // Reset the flag
         adminExpectingBannedWallet[Number(userId)] = false
       }
 

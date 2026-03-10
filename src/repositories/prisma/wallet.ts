@@ -191,9 +191,6 @@ export class PrismaWalletRepository {
         where: {
           userWallets: {
             some: {
-              status: {
-                not: 'BANNED',
-              },
               handiCatStatus: {
                 not: 'PAUSED',
               },
@@ -227,9 +224,6 @@ export class PrismaWalletRepository {
           userWallets: {
             some: {
               userId,
-              status: {
-                not: 'BANNED',
-              },
               handiCatStatus: {
                 not: 'PAUSED',
               },
@@ -263,7 +257,7 @@ export class PrismaWalletRepository {
           userWallets: {
             some: {
               userId,
-              OR: [{ status: 'BANNED' }, { status: 'SPAM_PAUSED' }, { handiCatStatus: 'PAUSED' }],
+              OR: [{ status: 'SPAM_PAUSED' }, { handiCatStatus: 'PAUSED' }],
             },
           },
         },
@@ -396,9 +390,6 @@ export class PrismaWalletRepository {
         },
       })
 
-      if (walletToResume?.status === 'BANNED') {
-        return false
-      }
       const resumedWallet = await prisma.userWallet.update({
         where: {
           userId_walletId: {

@@ -1,13 +1,13 @@
 import TelegramBot from 'node-telegram-bot-api'
-import { SubscriptionMessages } from '../messages/subscription-messages'
-import { GROUPS_MENU, SUB_MENU, SUGGEST_UPGRADE_SUBMENU } from '../../config/bot-menus'
+import { GROUPS_MENU, SUB_MENU } from '../../config/bot-menus'
 import { BotMiddleware } from '../../config/bot-middleware'
 import { GeneralMessages } from '../messages/general-messages'
 import { PrismaGroupRepository } from '../../repositories/prisma/group'
 import { CreateUserGroupInterface } from '../../types/general-interfaces'
-import { MAX_USER_GROUPS } from '../../constants/pricing'
 import { userExpectingGroupId } from '../../constants/flags'
 import { PrismaUserRepository } from '../../repositories/prisma/user'
+
+const MAX_USER_GROUPS = 5
 
 export class GroupsCommand {
   private prismaGroupRepository: PrismaGroupRepository
@@ -22,25 +22,14 @@ export class GroupsCommand {
   public async groupsButtonHandler(message: TelegramBot.Message) {
     const userId = message.chat.id.toString()
 
-    const isUserPro = await BotMiddleware.isUserPro(userId)
+    const allUserGroups = await this.prismaGroupRepository.getAllUserGroups(userId)
 
-    if (isUserPro) {
-      const allUserGroups = await this.prismaGroupRepository.getAllUserGroups(userId)
-
-      this.bot.editMessageText(GeneralMessages.groupsMessage(allUserGroups || []), {
-        chat_id: message.chat.id,
-        message_id: message.message_id,
-        parse_mode: 'HTML',
-        reply_markup: GROUPS_MENU,
-      })
-    } else {
-      this.bot.editMessageText(SubscriptionMessages.userUpgradeGroups, {
-        chat_id: message.chat.id,
-        message_id: message.message_id,
-        parse_mode: 'HTML',
-        reply_markup: SUGGEST_UPGRADE_SUBMENU,
-      })
-    }
+    this.bot.editMessageText(GeneralMessages.groupsMessage(allUserGroups || []), {
+      chat_id: message.chat.id,
+      message_id: message.message_id,
+      parse_mode: 'HTML',
+      reply_markup: GROUPS_MENU,
+    })
   }
 
   public async activateGroupCommandHandler() {
@@ -51,20 +40,10 @@ export class GroupsCommand {
 
       if (!BotMiddleware.isGroup(chatId)) return
 
-      // check if user has send /start before
       const groupUser = await this.prismaUserRepository.getById(String(chatId))
 
       if (!groupUser) {
         this.bot.sendMessage(chatId, GeneralMessages.groupChatNotStarted, {
-          parse_mode: 'HTML',
-        })
-        return
-      }
-
-      const isUserPro = await BotMiddleware.isUserPro(userId)
-
-      if (!isUserPro) {
-        this.bot.sendMessage(chatId, SubscriptionMessages.groupChatNotPro, {
           parse_mode: 'HTML',
         })
         return
@@ -76,7 +55,7 @@ export class GroupsCommand {
       ])
 
       if (allUserGroupsCount && allUserGroupsCount >= MAX_USER_GROUPS) {
-        this.bot.sendMessage(chatId, SubscriptionMessages.userGroupsLimit, {
+        this.bot.sendMessage(chatId, GeneralMessages.userGroupsLimit, {
           parse_mode: 'HTML',
         })
         return

@@ -1,4 +1,3 @@
-import { SubscriptionPlan } from '@prisma/client'
 import { CreateWallet } from '../../lib/create-wallet'
 import { CreateUserGroupInterface, CreateUserInterface } from '../../types/general-interfaces'
 import prisma from '../../providers/prisma'
@@ -35,35 +34,9 @@ export class PrismaUserRepository {
         id: true,
         personalWalletPrivKey: true,
         personalWalletPubKey: true,
-        hasDonated: true,
-        userSubscription: {
-          select: {
-            plan: true,
-            subscriptionCurrentPeriodEnd: true,
-          },
-        },
         _count: {
           select: {
             userWallets: true,
-          },
-        },
-      },
-    })
-
-    return user
-  }
-
-  public async getUserPlan(userId: string) {
-    const user = await prisma.user.findUnique({
-      where: {
-        id: userId,
-      },
-      select: {
-        personalWalletPubKey: true,
-        userSubscription: {
-          select: {
-            plan: true,
-            subscriptionCurrentPeriodEnd: true,
           },
         },
       },
@@ -84,83 +57,6 @@ export class PrismaUserRepository {
     })
 
     return walletBalance
-  }
-
-  public async hasDonated(userId: string) {
-    try {
-      const buyCode = await prisma.user.update({
-        where: {
-          id: userId,
-        },
-        data: {
-          hasDonated: true,
-        },
-      })
-
-      return buyCode
-    } catch (error) {
-      console.log('BUY_SOURCE_CODE_ERROR')
-      return
-    }
-  }
-
-  public async getUsersWithDue() {
-    try {
-      const today = new Date()
-      today.setHours(23, 59, 59, 999)
-
-      const usersToCharge = await prisma.userSubscription.findMany({
-        where: {
-          subscriptionCurrentPeriodEnd: {
-            lte: today,
-          },
-          isCanceled: false,
-          plan: {
-            not: 'FREE',
-          },
-        },
-      })
-
-      return usersToCharge
-    } catch (error) {
-      console.log('GET_USERS_TO_CHARGE_ERROR', error)
-      return []
-    }
-  }
-
-  public async getUsersWithEndingTomorrow() {
-    try {
-      const tomorrow = new Date()
-      tomorrow.setDate(tomorrow.getDate() + 1)
-      tomorrow.setHours(0, 0, 0, 0) // Reset time to start of day
-
-      const usersToRenew = await prisma.userSubscription.findMany({
-        where: {
-          subscriptionCurrentPeriodEnd: {
-            equals: tomorrow,
-          },
-          isCanceled: false,
-          plan: {
-            not: 'FREE',
-          },
-        },
-        select: {
-          plan: true,
-          id: true,
-          userId: true,
-          user: {
-            select: {
-              username: true,
-            },
-          },
-        },
-      })
-
-      return usersToRenew
-    } catch (error) {
-      console.log('GET_USERS_WITH_ENDING_TOMORROW_ERROR', error)
-      return []
-    }
   }
 
   public async updateUserHandiCatStatus(
@@ -219,26 +115,6 @@ export class PrismaUserRepository {
     }
   }
 
-  public async getFreeUsers() {
-    try {
-      const freeUsers = await prisma.user.findMany({
-        where: {
-          AND: [
-            {
-              OR: [{ userSubscription: null }, { userSubscription: { plan: 'FREE' } }],
-            },
-            { userPromotions: { none: {} } },
-          ],
-        },
-      })
-
-      return freeUsers
-    } catch (error) {
-      console.log('GET_FREE_USERS_ERROR')
-      return
-    }
-  }
-
   public async getPausedUsers(userIds: string[]) {
     try {
       const pausedUsers = await prisma.user.findMany({
@@ -277,6 +153,31 @@ export class PrismaUserRepository {
     } catch (error) {
       console.log('GET_PAUSED_USERS_ERROR')
       return
+    }
+  }
+
+  public async getUserGroupsByWallet(walletAddress: string) {
+    try {
+      const groups = await prisma.group.findMany({
+        where: {
+          user: {
+            userWallets: {
+              some: {
+                address: walletAddress,
+              },
+            },
+          },
+        },
+        select: {
+          chatId: true,
+          name: true,
+        },
+      })
+
+      return groups
+    } catch (error) {
+      console.log('GET_USER_GROUPS_BY_WALLET_ERROR')
+      return []
     }
   }
 }

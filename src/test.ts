@@ -1,6 +1,5 @@
 import axios from 'axios'
 import { RpcConnectionManager } from './providers/solana'
-import { UserPlan } from './lib/user-plan'
 import { ValidTransactions } from './lib/valid-transactions'
 import { TokenUtils } from './lib/token-utils'
 import { Logs, PublicKey } from '@solana/web3.js'
