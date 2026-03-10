@@ -1,0 +1,2 @@
+# Telegram Session Generator Requirements
+telethon==1.36.0

@@ -198,7 +198,7 @@ export class WatchTransaction extends EventEmitter {
     const groupTask = limit(async () => {
       if (parsed && typeof parsed === 'object' && 'type' in parsed && 'owner' in parsed) {
         try {
-          const walletName = wallet.name || wallet.address.slice(0, 8)
+          const walletName = wallet.address.slice(0, 8)
           await this.telegramUserClient.sendBuyMessageToGroups(parsed as any, walletName)
         } catch (error) {
           console.log('Error sending buy message to groups:', error)

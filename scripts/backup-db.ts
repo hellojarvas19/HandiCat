@@ -8,7 +8,6 @@ async function backupDatabase() {
     // Fetch all data from each table
     const users = await prisma.user.findMany({
       include: {
-        userSubscription: true,
         userWallets: true,
       },
     })
@@ -21,14 +20,11 @@ async function backupDatabase() {
 
     const userWallets = await prisma.userWallet.findMany()
 
-    const userSubscriptions = await prisma.userSubscription.findMany()
-
     // Create a backup object
     const backupData = {
       users,
       wallets,
       userWallets,
-      userSubscriptions,
     }
 
     // Convert the backup data to JSON format

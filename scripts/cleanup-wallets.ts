@@ -7,14 +7,6 @@ async function cleanUpOrphanedWallets() {
   try {
     await prisma.userWallet.deleteMany({
       where: {
-        user: {
-          AND: [
-            {
-              OR: [{ userSubscription: null }, { userSubscription: { plan: 'FREE' } }],
-            },
-            { userPromotions: { none: {} } },
-          ],
-        },
         NOT: {
           status: 'BANNED',
         },

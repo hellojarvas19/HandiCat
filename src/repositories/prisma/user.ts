@@ -169,6 +169,7 @@ export class PrismaUserRepository {
           },
         },
         select: {
+          id: true,
           chatId: true,
           name: true,
         },
