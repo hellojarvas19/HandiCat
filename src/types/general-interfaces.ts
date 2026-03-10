@@ -58,6 +58,7 @@ export interface CreateUserInterface {
 
 export interface CreateUserGroupInterface {
   id: string
+  chatId: string
   name: string
   userId: string
 }

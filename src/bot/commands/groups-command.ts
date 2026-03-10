@@ -64,6 +64,7 @@ export class GroupsCommand {
       if (!existingGroup?.id) {
         const data = {
           id: String(chatId),
+          chatId: String(chatId),
           userId: userId,
           name: groupName,
         } satisfies CreateUserGroupInterface
