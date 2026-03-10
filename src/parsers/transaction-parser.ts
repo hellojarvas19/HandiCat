@@ -133,10 +133,7 @@ export class TransactionParser {
         }
       }
 
-      const raydiumTransfer =
-        transactions.length > 2
-          ? transactions.find((t: any) => t?.info?.destination === transactions[0]?.info?.source)
-          : transactions[transactions.length - 1]
+      const raydiumTransfer = transactions.length > 1 ? transactions[1] : transactions[0]
 
       if (!raydiumTransfer && swap !== 'pumpfun_amm') {
         console.log('NO RAYDIUM TRANSFER')
@@ -232,8 +229,9 @@ export class TransactionParser {
       }
 
       // for raydium transactions
-      if (transactions.length > 1) {
+      if (transactions.length >= 1) {
         if (nativeBalance?.type === 'sell') {
+          // For sell: user is selling tokens for SOL
           tokenOutMint = await this.tokenUtils.getTokenMintAddress(transactions[0]?.info.destination)
           tokenInMint = 'So11111111111111111111111111111111111111112'
 
@@ -243,11 +241,11 @@ export class TransactionParser {
           }
 
           const tokenOutInfo = await this.tokenUtils.getParsedTokenInfo(tokenOutMint)
-
           tokenOut = tokenOutInfo.data.symbol.replace(/\x00/g, '')
           tokenIn = 'SOL'
         } else {
-          tokenInMint = await this.tokenUtils.getTokenMintAddress(raydiumTransfer.info.source)
+          // For buy: user is buying tokens with SOL
+          tokenInMint = await this.tokenUtils.getTokenMintAddress(transactions[0]?.info.source || raydiumTransfer?.info?.source)
           tokenOutMint = 'So11111111111111111111111111111111111111112'
 
           if (tokenInMint === null) {
@@ -256,19 +254,18 @@ export class TransactionParser {
           }
 
           const tokenInInfo = await this.tokenUtils.getParsedTokenInfo(tokenInMint)
-
           tokenIn = tokenInInfo.data.symbol.replace(/\x00/g, '')
           tokenOut = 'SOL'
         }
 
-        const formattedAmountOut = FormatNumbers.formatTokenAmount(Number(transactions[0]?.info?.amount))
-        const formattedAmountIn = FormatNumbers.formatTokenAmount(Number(raydiumTransfer?.info?.amount))
+        const formattedAmountOut = FormatNumbers.formatTokenAmount(Number(transactions[0]?.info?.amount || 0))
+        const formattedAmountIn = FormatNumbers.formatTokenAmount(Number(raydiumTransfer?.info?.amount || transactions[0]?.info?.amount || 0))
 
         owner = walletAddress
         amountOut =
-          tokenOut === 'SOL' ? (Number(transactions[0]?.info?.amount) / 1e9).toFixed(2).toString() : formattedAmountOut
+          tokenOut === 'SOL' ? (Number(transactions[0]?.info?.amount || 0) / 1e9).toFixed(2).toString() : formattedAmountOut
         amountIn =
-          tokenIn === 'SOL' ? (Number(raydiumTransfer.info.amount) / 1e9).toFixed(2).toString() : formattedAmountIn
+          tokenIn === 'SOL' ? (Number(raydiumTransfer?.info?.amount || transactions[0]?.info?.amount || 0) / 1e9).toFixed(2).toString() : formattedAmountIn
 
         let tokenMc: number | null | undefined = null
         let raydiumTokenPrice: number | null | undefined = null
@@ -276,7 +273,7 @@ export class TransactionParser {
         const swapDescription = `${owner} swapped ${amountOut} ${tokenOut} for ${amountIn} ${tokenIn}`
 
         // get the token price and market cap for raydium
-        if (transactions.length[0]?.info?.amount !== transactions[1]?.info?.amount) {
+        if (transactions.length >= 1) {
           const tokenPrice = await this.tokenMarketPrice.getTokenPriceRaydium(
             transactions,
             nativeBalance?.type as 'buy' | 'sell',
